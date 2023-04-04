@@ -20,3 +20,8 @@ class NoOrEmptyStatus(Exception):
     """Пустой статус домашней работы."""
 
     pass
+
+class EmptyAnswerFromAPI(Exception):
+    "Пустой ответ от АПИ"
+
+    pass
