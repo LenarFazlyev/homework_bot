@@ -59,13 +59,15 @@ def check_tokens():
             )
             all_tokens_exist = False
     if not all_tokens_exist:
-        raise SystemExit()
+        raise SystemExit(
+            'Отсутствует одна из обязательных переменных окружения'
+        )
 
 
 def send_message(bot, message):
     """Отправляет собщение в чат."""
+    loger.debug(f'Попытка отправить сообщение {message}')
     try:
-        loger.debug('Попытка отправить сообщение')
         bot.send_message(TELEGRAM_CHAT_ID, message)
         loger.debug(f'Сообщение: {message} - отправлено в чат успешно')
         return True
@@ -90,7 +92,7 @@ def get_api_answer(timestamp):
         ).format(**parameters_dict)
     )
     try:
-        response = requests.get(ENDPOINT, headers=HEADERS, params=payload)
+        response = requests.get(**parameters_dict)
     except Exception as error:
         raise ConnectionError(
             (
@@ -100,19 +102,18 @@ def get_api_answer(timestamp):
                 ' привел к ошибке: {error}'
             ).format(error=error, **parameters_dict)
         )
-    else:
-        if response.status_code != HTTPStatus.OK:
-            error = (
-                (
-                    'Недоступен эндпоинт {uls}'
-                    ' c параметрами headers:{headers}'
-                    ' и params:{params}.'
-                    'Код ответа API:', response.status_code,
-                    'Причина:', response.reason,
-                    'Текст:', response.text
-                )
+    if response.status_code != HTTPStatus.OK:
+        error = (
+            (
+                'Недоступен эндпоинт {uls}'
+                ' c параметрами headers:{headers}'
+                ' и params:{params}.'
+                'Код ответа API:', response.status_code,
+                'Причина:', response.reason,
+                'Текст:', response.text
             )
-            raise UnexpectedErrorWithEndpoint(error)
+        )
+        raise UnexpectedErrorWithEndpoint(error)
     return response.json()
 
 
@@ -171,16 +172,19 @@ def main():
                     'Новых статусов нет'
                 )
             if current_report != prev_report:
-                if send_message(bot, current_message):
+                if send_message(bot, current_report['message']):
                     prev_report = current_report.copy()
                     timestamp = response.get('current_date', timestamp)
             else:
                 loger.debug('Новых статусов нет')
         except EmptyAnswerFromAPI as error:
-            loger.error(f'Пустой ответ от АПИ. Код ошибки:{error}')
+            loger.error(
+                f'Пустой ответ от АПИ. Код ошибки:{error}',
+                exc_info=True
+            )
         except Exception as error:
             message = f'Сбой в работе программы. Код ошибки:{error}'
-            loger.error(message)
+            loger.error(message, exc_info=True)
             current_report['message'] = message
             if current_report != prev_report:
                 send_message(bot, message)
